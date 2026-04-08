@@ -16,9 +16,9 @@ function loadPreviewWithRetry(url, imgElement, wrapperElement) {
 
   // Use background script to check headers safely
   try {
-    chrome.runtime.sendMessage({ 
-      action: 'checkPreview', 
-      url: url 
+    chrome.runtime.sendMessage({
+      action: 'checkPreview',
+      url: url
     }, (response) => {
       // Content script can outlive extension updates; fail silently if invalidated.
       if (!isRuntimeAvailable()) {
@@ -43,10 +43,8 @@ function loadPreviewWithRetry(url, imgElement, wrapperElement) {
       // 3. Handle Refresh instruction (Generation in progress)
       if (response.refresh) {
         const seconds = parseInt(response.refresh.split(';')[0], 10) || 5;
-        console.log(`Generating preview for ${url}. Retrying in ${seconds}s...`);
-        
         wrapperElement.classList.add('gs-preview-loading');
-        
+
         setTimeout(() => {
           if (document.contains(wrapperElement)) {
             loadPreviewWithRetry(url, imgElement, wrapperElement);
@@ -88,9 +86,41 @@ function getSiteName(link, container) {
   return siteName;
 }
 
+function resolveResultUrl(rawHref) {
+  try {
+    const parsed = new URL(rawHref, window.location.href);
+
+    // Google can wrap outbound links as /url?q=<target>
+    if (parsed.hostname.includes('google.') && parsed.pathname === '/url') {
+      const target = parsed.searchParams.get('q') || parsed.searchParams.get('url');
+      if (target) return target;
+    }
+
+    return parsed.href;
+  } catch (e) {
+    return '';
+  }
+}
+
+function isPrimaryResultLink(link) {
+  if (!link || link.closest('.gs-preview-wrapper')) return false;
+
+  const href = link.getAttribute('href') || '';
+  if (!href || href.startsWith('#') || href.startsWith('javascript:')) return false;
+
+  const looksLikeTitleLink =
+    link.matches('.yuRUbf > a[href], a.zReHs[href], a[jsname="UWckNb"][href]') ||
+    !!link.closest('.yuRUbf') ||
+    !!link.querySelector('h3');
+
+  if (!looksLikeTitleLink) return false;
+
+  return !!link.closest('.MjjYud, .g');
+}
+
 function isVideoResult(container, link) {
   const href = link.href.toLowerCase();
-  const isKnownVideoHost = /(youtube\.com|youtu\.be|vimeo\.com|dailymotion\.com|twitch\.tv|tiktok\.com)/.test(href);
+  const isKnownVideoHost = /(youtube\.com|youtu\.be|vimeo\.com|dailymotion\.com|twitch\.tv)/.test(href);
   if (isKnownVideoHost) return true;
 
   const hasVideoMarkup = Boolean(
@@ -115,14 +145,12 @@ function injectPreview(link) {
 
   if (isVideoResult(container, link)) return;
 
-  const url = link.href;
-  
-  try {
-    const urlObj = new URL(url);
-    if (urlObj.hostname.includes('google.com') || urlObj.protocol === 'javascript:') return;
-  } catch (e) {
-    return;
-  }
+  const url = resolveResultUrl(link.href);
+  if (!url) return;
+
+  const urlObj = new URL(url);
+  if (!/^https?:$/.test(urlObj.protocol)) return;
+  if (/^www\.google\.[a-z.]{2,}$/.test(urlObj.hostname) && urlObj.pathname.startsWith('/search')) return;
 
   const siteName = getSiteName(link, container);
 
@@ -174,15 +202,25 @@ function injectPreview(link) {
  * Scans the page for search results and processes them.
  */
 function processResults() {
-  // Only process canonical organic-result title links.
-  // This avoids injecting into video packs and other rich modules.
-  const selectors = [
-    '.MjjYud .yuRUbf > a[href]',
-    '.g .yuRUbf > a[href]'
-  ];
-  
-  const links = document.querySelectorAll(selectors.join(','));
-  links.forEach(injectPreview);
+  // Target only the primary search results container to avoid UI breakage
+  const rsoContainers = document.querySelectorAll('[data-async-context]#rso, #rso');
+
+  rsoContainers.forEach(rso => {
+    Array.from(rso.children).forEach(rsoChild => {
+      // Only process children that contain exactly one nested div element
+      const childElements = Array.from(rsoChild.children);
+      const divChildren = childElements.filter(c => c.tagName.toLowerCase() === 'div');
+
+      if (divChildren.length === 1 && childElements.length === 1) {
+        const links = rsoChild.querySelectorAll('a[href]');
+        links.forEach(link => {
+          if (isPrimaryResultLink(link)) {
+            injectPreview(link);
+          }
+        });
+      }
+    });
+  });
 }
 
 // Initial processing when script loads
@@ -207,9 +245,7 @@ const observer = new MutationObserver((mutations) => {
   }
 });
 
-observer.observe(document.body, { 
-  childList: true, 
-  subtree: true 
+observer.observe(document.body, {
+  childList: true,
+  subtree: true
 });
-
-console.log('Google Search Website Previews: Content script loaded.');
