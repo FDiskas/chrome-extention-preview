@@ -102,20 +102,20 @@ function resolveResultUrl(rawHref) {
   }
 }
 
-function isPrimaryResultLink(link) {
+function isPrimaryResultLink(link, container) {
   if (!link || link.closest('.gs-preview-wrapper')) return false;
 
   const href = link.getAttribute('href') || '';
   if (!href || href.startsWith('#') || href.startsWith('javascript:')) return false;
 
   const looksLikeTitleLink =
-    link.matches('.yuRUbf > a[href], a.zReHs[href], a[jsname="UWckNb"][href]') ||
-    !!link.closest('.yuRUbf') ||
-    !!link.querySelector('h3');
+    !!link.querySelector('h3') ||
+    link.matches('a[jsname="UWckNb"][href]');
 
   if (!looksLikeTitleLink) return false;
 
-  return !!link.closest('.MjjYud, .g');
+  // We rely on container context passed down now
+  return container ? container.contains(link) : true;
 }
 
 function isVideoResult(container, link) {
@@ -136,11 +136,10 @@ function isVideoResult(container, link) {
 /**
  * Injects a preview thumbnail into a search result.
  */
-function injectPreview(link) {
+function injectPreview(link, container) {
   if (link.dataset.gsProcessed) return;
   link.dataset.gsProcessed = 'true';
 
-  const container = link.closest('.MjjYud') || link.closest('.g');
   if (!container || container.querySelector('.gs-preview-wrapper')) return;
 
   if (isVideoResult(container, link)) return;
@@ -184,14 +183,43 @@ function injectPreview(link) {
     e.stopPropagation();
   });
 
-  container.classList.add('gs-preview-layout');
-
-  const anchorPoint = container.querySelector('.yuRUbf')?.parentElement || container.firstElementChild;
-  if (anchorPoint && anchorPoint.parentNode === container) {
-    container.insertBefore(previewDiv, anchorPoint);
-  } else {
-    container.insertBefore(previewDiv, container.firstChild);
+  // Find the description container using a structural approach
+  // We scan top-down to find a block with exactly 2 divs where the FIRST div contains the Title link.
+  // This ensures the SECOND div is the description block, and we don't accidentally pick a Header/Body split.
+  let descContainer = null;
+  const allDivs = container.querySelectorAll('div');
+  
+  for (const div of allDivs) {
+    const childDivs = Array.from(div.children).filter(c => c.tagName.toLowerCase() === 'div');
+    if (childDivs.length === 2) {
+      if (childDivs[0].contains(link)) {
+        descContainer = childDivs[1];
+        break;
+      }
+    }
   }
+
+  // Fallback if the 2-div structural pattern isn't found (e.g. Forums, special layouts)
+  if (!descContainer) {
+    // Find the closest ancestor of the link that has a next sibling. That sibling is the description block.
+    let current = link;
+    while (current && current.parentElement && current.parentElement !== container) {
+      if (current.nextElementSibling) {
+        descContainer = current.nextElementSibling;
+        break;
+      }
+      current = current.parentElement;
+    }
+  }
+
+  // Ultimate fallback to top-level if completely unparseable
+  if (!descContainer) {
+    descContainer = container;
+  }
+
+  // We append a special class to the specific container we chose for scoping CSS later
+  descContainer.classList.add('gs-desc-preview-layout');
+  descContainer.insertBefore(previewDiv, descContainer.firstChild);
 
   // Start the smart loading process
   const previewUrl = `${PREVIEW_API}${encodeURIComponent(url)}`;
@@ -214,8 +242,8 @@ function processResults() {
       if (divChildren.length === 1 && childElements.length === 1) {
         const links = rsoChild.querySelectorAll('a[href]');
         links.forEach(link => {
-          if (isPrimaryResultLink(link)) {
-            injectPreview(link);
+          if (isPrimaryResultLink(link, rsoChild)) {
+            injectPreview(link, rsoChild);
           }
         });
       }
