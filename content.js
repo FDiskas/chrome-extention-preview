@@ -72,7 +72,18 @@ function loadPreviewWithRetry(url, imgElement, wrapperElement) {
 }
 
 function getSiteName(link, container) {
-  const siteNameFromResult = container.querySelector('.VuuXrf, .tjvcx, .NUnG9d span')?.textContent?.trim();
+  let siteNameFromResult = '';
+  const headerElem = container.querySelector('[data-snhf="0"]');
+  
+  if (headerElem) {
+    const nameSpans = headerElem.querySelectorAll('span:not([aria-hidden="true"])');
+    for (const span of nameSpans) {
+      if (span.children.length === 0) {
+        siteNameFromResult = span.textContent?.trim();
+        if (siteNameFromResult) break;
+      }
+    }
+  }
 
   let siteName = siteNameFromResult;
   if (!siteName) {
@@ -124,7 +135,7 @@ function isVideoResult(container, link) {
   if (isKnownVideoHost) return true;
 
   const hasVideoMarkup = Boolean(
-    container.querySelector('g-video-preview, video, [aria-label*="video" i], [data-vid]')
+    container.querySelector('g-video-preview, video, [aria-label*="video" i], [data-vid], [aria-label*="Play " i]')
   );
   if (hasVideoMarkup) return true;
 
@@ -183,36 +194,10 @@ function injectPreview(link, container) {
     e.stopPropagation();
   });
 
-  // Find the description container using a structural approach
-  // We scan top-down to find a block with exactly 2 divs where the FIRST div contains the Title link.
-  // This ensures the SECOND div is the description block, and we don't accidentally pick a Header/Body split.
-  let descContainer = null;
-  const allDivs = container.querySelectorAll('div');
-  
-  for (const div of allDivs) {
-    const childDivs = Array.from(div.children).filter(c => c.tagName.toLowerCase() === 'div');
-    if (childDivs.length === 2) {
-      if (childDivs[0].contains(link)) {
-        descContainer = childDivs[1];
-        break;
-      }
-    }
-  }
+  // Find the description container using the highly reliable data-sncf="1" attribute
+  let descContainer = container.querySelector('[data-sncf="1"]');
 
-  // Fallback if the 2-div structural pattern isn't found (e.g. Forums, special layouts)
-  if (!descContainer) {
-    // Find the closest ancestor of the link that has a next sibling. That sibling is the description block.
-    let current = link;
-    while (current && current.parentElement && current.parentElement !== container) {
-      if (current.nextElementSibling) {
-        descContainer = current.nextElementSibling;
-        break;
-      }
-      current = current.parentElement;
-    }
-  }
-
-  // Ultimate fallback to top-level if completely unparseable
+  // Ultimate fallback to top-level if the specific structure isn't found
   if (!descContainer) {
     descContainer = container;
   }

@@ -11,23 +11,6 @@
   margin-top: 4px;
 }
 
-/* Fallback for top-level flex layout, if description block isn't found */
-.gs-preview-layout {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-}
-
-.gs-preview-layout > .gs-preview-wrapper {
-  flex: 0 0 148px;
-  margin-top: 2px;
-}
-
-.gs-preview-layout > :not(.gs-preview-wrapper) {
-  flex: 1;
-  min-width: 0;
-}
-
 .gs-preview-wrapper {
   display: inline-flex;
   flex-direction: column;
@@ -95,12 +78,12 @@
 
 /* Small screens / narrow windows */
 @media (max-width: 800px) {
-  .gs-preview-layout {
-    flex-direction: column;
-  }
-
-  .gs-preview-layout>.gs-preview-wrapper {
+  .gs-desc-preview-layout > .gs-preview-wrapper {
+    float: none;
+    margin-right: 0;
+    margin-bottom: 8px;
     margin-top: 8px;
+    width: 100%;
   }
 
   .gs-preview-thumb-link {
