@@ -73,3 +73,21 @@ These are required to inject result previews and check screenshot availability.
 - This extension is built for Google Search result pages.
 - Preview images are provided by the external service at `preview.coders.lt`.
 - Preview fetches happen in the extension service worker, not directly from page `<img>` requests.
+
+## Chrome Web Store Deployment Pipeline
+
+This repository includes a GitHub Actions workflow at `.github/workflows/publish-chrome-webstore.yml`.
+
+### Triggers
+
+- Push a tag matching `v*` (for example `v1.2.0`)
+- Manual run from the **Actions** tab via `workflow_dispatch`
+
+### Required GitHub Secrets
+
+- `CWS_CLIENT_ID`
+- `CWS_CLIENT_SECRET`
+- `CWS_REFRESH_TOKEN`
+- `CWS_EXTENSION_ID`
+
+The workflow packages the extension files into `release.zip` and runs `mobilefirstllc/cws-publish@latest` with `action: publish`.
