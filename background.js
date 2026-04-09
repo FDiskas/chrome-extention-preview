@@ -32,7 +32,10 @@ function createReloadContextMenu() {
       id: RELOAD_MENU_ID,
       title: 'Reload preview image',
       contexts: ['image'],
-      documentUrlPatterns: ['https://www.google.com/search*']
+      documentUrlPatterns: [
+        '*://*.google.com/search*',
+        '*://*.google.lt/search*'
+      ]
     }, () => {
       // Ignore duplicate/remove errors during extension reloads.
       void chrome.runtime.lastError;

@@ -291,6 +291,17 @@ function reloadPreviewByTargetUrl(targetUrl) {
   });
 }
 
+function refreshAllPreviews() {
+  document.querySelectorAll('.gs-preview-wrapper').forEach((preview) => preview.remove());
+
+  const processedLinks = document.querySelectorAll('[data-gs-processed]');
+  processedLinks.forEach((link) => {
+    delete link.dataset.gsProcessed;
+  });
+
+  scheduleProcessResults();
+}
+
 /**
  * Scans the page for search results and processes them.
  */
@@ -355,6 +366,10 @@ if (isRuntimeAvailable()) {
   chrome.runtime.onMessage.addListener((request) => {
     if (request.action === 'reloadPreviewImage' && typeof request.targetUrl === 'string') {
       reloadPreviewByTargetUrl(request.targetUrl);
+    }
+
+    if (request.action === 'refreshAllPreviews') {
+      refreshAllPreviews();
     }
   });
 }

@@ -6,14 +6,46 @@
   "background": {
     "service_worker": "background.js"
   },
-  "permissions": ["storage", "scripting", "contextMenus"],
+  "permissions": ["storage", "contextMenus"],
   "host_permissions": [
-    "https://www.google.com/search*",
     "https://preview.coders.lt/*"
   ],
   "content_scripts": [
     {
-      "matches": ["https://www.google.com/search*"],
+      "matches": [
+        "*://*.google.com/search*",
+        "*://*.google.co.uk/search*",
+        "*://*.google.ca/search*",
+        "*://*.google.com.au/search*",
+        "*://*.google.co.in/search*",
+        "*://*.google.de/search*",
+        "*://*.google.fr/search*",
+        "*://*.google.es/search*",
+        "*://*.google.it/search*",
+        "*://*.google.nl/search*",
+        "*://*.google.pl/search*",
+        "*://*.google.com.br/search*",
+        "*://*.google.com.mx/search*",
+        "*://*.google.co.jp/search*",
+        "*://*.google.co.kr/search*",
+        "*://*.google.com.tr/search*",
+        "*://*.google.com.sa/search*",
+        "*://*.google.com.sg/search*",
+        "*://*.google.ie/search*",
+        "*://*.google.ch/search*",
+        "*://*.google.se/search*",
+        "*://*.google.no/search*",
+        "*://*.google.dk/search*",
+        "*://*.google.fi/search*",
+        "*://*.google.be/search*",
+        "*://*.google.at/search*",
+        "*://*.google.pt/search*",
+        "*://*.google.gr/search*",
+        "*://*.google.co.il/search*",
+        "*://*.google.co.th/search*",
+        "*://*.google.lt/search*",
+        "*://*.google.com.vn/search*"
+      ],
       "js": ["content.js"],
       "css": ["css/styles.css"],
       "run_at": "document_start"

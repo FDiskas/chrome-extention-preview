@@ -1,25 +1,20 @@
 document.getElementById('refresh-previews').addEventListener('click', async () => {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  
-  if (tab.url && tab.url.includes('google.com/search')) {
-    chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      func: () => {
-        // Clear all previews and re-process
-        document.querySelectorAll('.gs-preview-wrapper').forEach(p => p.remove());
-        const processedLinks = document.querySelectorAll('[data-gs-processed]');
-        processedLinks.forEach(link => {
-          delete link.dataset.gsProcessed;
-        });
-        
-        // Trigger the logic to run again
-        if (typeof processResults === 'function') {
-          processResults();
-        } else {
-          // If the script is already there but the function isn't globally exposed, 
-          // we could just reload, but it's better to reload for a clean state.
-          location.reload();
-        }
+
+  let isGoogleSearch = false;
+  try {
+    if (tab?.url) {
+      const parsed = new URL(tab.url);
+      isGoogleSearch = parsed.hostname.startsWith('www.google.') && parsed.pathname.startsWith('/search');
+    }
+  } catch (error) {
+    isGoogleSearch = false;
+  }
+
+  if (isGoogleSearch && tab?.id) {
+    chrome.tabs.sendMessage(tab.id, { action: 'refreshAllPreviews' }, () => {
+      if (chrome.runtime.lastError) {
+        console.warn('Refresh message failed:', chrome.runtime.lastError.message || chrome.runtime.lastError);
       }
     });
 
