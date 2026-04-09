@@ -22,7 +22,7 @@ jobs:
           zip -r release.zip manifest.json background.js content.js css popup icons
 
       - name: Upload and publish
-        uses: mobilefirstllc/cws-publish@latest
+        uses: mobilefirstllc/cws-publish@569e87bc9a54ad7712ba6dc154a110d88af63b85 # 2.1.1
         with:
           action: publish
           client_id: ${{ secrets.CWS_CLIENT_ID }}
