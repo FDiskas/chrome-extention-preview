@@ -4,70 +4,127 @@ function isRuntimeAvailable() {
   return typeof chrome !== 'undefined' && !!chrome.runtime && !!chrome.runtime.id;
 }
 
+function isElement(value) {
+  return typeof Element !== 'undefined' && value instanceof Element;
+}
+
+function clearLoadingState(wrapperElement, imgElement) {
+  wrapperElement.classList.remove('gs-preview-loading');
+  imgElement.classList.remove('gs-preview-reloading');
+}
+
+function finishLoadingState(wrapperElement, imgElement, loadingUntil) {
+  const remainingMs = Math.max(0, loadingUntil - Date.now());
+
+  if (remainingMs === 0) {
+    clearLoadingState(wrapperElement, imgElement);
+    return;
+  }
+
+  setTimeout(() => {
+    if (!document.contains(wrapperElement)) return;
+    clearLoadingState(wrapperElement, imgElement);
+  }, remainingMs);
+}
+
 /**
- * Handles image loading with support for the 'Refresh' HTTP header.
- * Uses a background script to bypass CORS/CSP restrictions.
+ * Handles preview loading with support for the 'Refresh' HTTP header.
+ * The background worker fetches remote images and returns a data URL.
  */
-function loadPreviewWithRetry(url, imgElement, wrapperElement) {
+function loadPreviewWithRetry(url, imgElement, wrapperElement, options = {}) {
+  const loadingUntil = options.loadingUntil || 0;
+  const removeOnFail = options.removeOnFail !== false;
+
   if (!isRuntimeAvailable()) {
-    wrapperElement.remove();
+    if (removeOnFail) {
+      wrapperElement.remove();
+    } else {
+      finishLoadingState(wrapperElement, imgElement, loadingUntil);
+    }
     return;
   }
 
   // Use background script to check headers safely
   try {
     chrome.runtime.sendMessage({
-      action: 'checkPreview',
+      action: 'fetchPreviewData',
       url: url
     }, (response) => {
       // Content script can outlive extension updates; fail silently if invalidated.
       if (!isRuntimeAvailable()) {
-        wrapperElement.remove();
+        if (removeOnFail) {
+          wrapperElement.remove();
+        } else {
+          finishLoadingState(wrapperElement, imgElement, loadingUntil);
+        }
         return;
       }
 
       // 1. Handle communication errors
       if (chrome.runtime.lastError) {
         console.error('Extension message failed:', chrome.runtime.lastError.message || chrome.runtime.lastError);
-        wrapperElement.remove();
+        if (removeOnFail) {
+          wrapperElement.remove();
+        } else {
+          finishLoadingState(wrapperElement, imgElement, loadingUntil);
+        }
         return;
       }
 
       // 2. Handle API or network errors
       if (!response || !response.ok) {
         console.warn('Preview status check failed.');
-        wrapperElement.remove();
+        if (removeOnFail) {
+          wrapperElement.remove();
+        } else {
+          finishLoadingState(wrapperElement, imgElement, loadingUntil);
+        }
         return;
       }
 
-      // 3. Handle Refresh instruction (Generation in progress)
+      // 3. Handle Refresh instruction (generation in progress)
       if (response.refresh) {
         const seconds = parseInt(response.refresh.split(';')[0], 10) || 5;
         wrapperElement.classList.add('gs-preview-loading');
 
         setTimeout(() => {
           if (document.contains(wrapperElement)) {
-            loadPreviewWithRetry(url, imgElement, wrapperElement);
+            loadPreviewWithRetry(url, imgElement, wrapperElement, options);
           }
         }, seconds * 1000);
         return;
       }
 
-      // 4. Success: Set the final image source
-      // The browser usually handles the actual image request for <img> tags
-      // more leniently than fetch requests in terms of CORS.
-      imgElement.src = url;
+      // 4. Success: Set the image from service-worker-provided data URL.
+      if (!response.dataUrl) {
+        if (removeOnFail) {
+          wrapperElement.remove();
+        } else {
+          finishLoadingState(wrapperElement, imgElement, loadingUntil);
+        }
+        return;
+      }
+
       imgElement.onload = () => {
-        wrapperElement.classList.remove('gs-preview-loading');
+        finishLoadingState(wrapperElement, imgElement, loadingUntil);
       };
       imgElement.onerror = () => {
-        // If the actual image display fails, remove the placeholder
-        wrapperElement.remove();
+        if (removeOnFail) {
+          // If the actual image display fails, remove the placeholder
+          wrapperElement.remove();
+        } else {
+          finishLoadingState(wrapperElement, imgElement, loadingUntil);
+        }
       };
+      imgElement.src = response.dataUrl;
     });
   } catch (error) {
     console.warn('Preview message skipped:', error?.message || error);
-    wrapperElement.remove();
+    if (removeOnFail) {
+      wrapperElement.remove();
+    } else {
+      finishLoadingState(wrapperElement, imgElement, loadingUntil);
+    }
   }
 }
 
@@ -183,6 +240,7 @@ function injectPreview(link, container) {
 
   const img = document.createElement('img');
   img.className = 'gs-preview-image';
+  img.dataset.previewTargetUrl = url;
 
   imageFrame.appendChild(img);
   thumbLink.appendChild(siteBadge);
@@ -211,6 +269,28 @@ function injectPreview(link, container) {
   loadPreviewWithRetry(previewUrl, img, imageFrame);
 }
 
+function reloadPreviewByTargetUrl(targetUrl) {
+  if (!targetUrl) return;
+
+  const images = document.querySelectorAll('.gs-preview-image');
+  images.forEach((img) => {
+    if (!(img instanceof HTMLImageElement)) return;
+    if (img.dataset.previewTargetUrl !== targetUrl) return;
+
+    const frame = img.closest('.gs-preview-image-frame');
+    if (!(frame instanceof HTMLElement)) return;
+
+    const loadingUntil = Date.now() + 5000;
+    frame.classList.add('gs-preview-loading');
+    img.classList.add('gs-preview-reloading');
+    const previewUrl = `${PREVIEW_API}${encodeURIComponent(targetUrl)}`;
+    loadPreviewWithRetry(previewUrl, img, frame, {
+      loadingUntil,
+      removeOnFail: false
+    });
+  });
+}
+
 /**
  * Scans the page for search results and processes them.
  */
@@ -236,11 +316,62 @@ function processResults() {
   });
 }
 
-// Initial processing when script loads
+let processScheduled = false;
+
+function scheduleProcessResults() {
+  if (processScheduled) return;
+  processScheduled = true;
+
+  requestAnimationFrame(() => {
+    processScheduled = false;
+    processResults();
+  });
+}
+
+document.addEventListener('contextmenu', (event) => {
+  if (!isRuntimeAvailable()) return;
+  if (!isElement(event.target)) return;
+
+  const image = event.target.closest('.gs-preview-image');
+  if (!(image instanceof HTMLImageElement)) {
+    chrome.runtime.sendMessage({ action: 'clearPreviewContext' }, () => {
+      void chrome.runtime.lastError;
+    });
+    return;
+  }
+
+  const targetUrl = image.dataset.previewTargetUrl;
+  if (!targetUrl) return;
+
+  chrome.runtime.sendMessage({
+    action: 'setPreviewContext',
+    targetUrl
+  }, () => {
+    void chrome.runtime.lastError;
+  });
+}, true);
+
+if (isRuntimeAvailable()) {
+  chrome.runtime.onMessage.addListener((request) => {
+    if (request.action === 'reloadPreviewImage' && typeof request.targetUrl === 'string') {
+      reloadPreviewByTargetUrl(request.targetUrl);
+    }
+  });
+}
+
+// Start processing immediately so we can catch early-rendered nodes.
+scheduleProcessResults();
+
+// Keep a few extra lifecycle hooks for cases where Google hydrates late.
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', processResults);
-} else {
-  processResults();
+  document.addEventListener('readystatechange', () => {
+    if (document.readyState === 'interactive') {
+      scheduleProcessResults();
+    }
+  });
+
+  document.addEventListener('DOMContentLoaded', scheduleProcessResults, { once: true });
+  window.addEventListener('load', scheduleProcessResults, { once: true });
 }
 
 // Robust observer to handle Google's infinite scrolling and dynamic updates
@@ -253,12 +384,11 @@ const observer = new MutationObserver((mutations) => {
     }
   }
   if (shouldProcess) {
-    // Small delay to ensure the DOM is ready after injection
-    requestAnimationFrame(processResults);
+    scheduleProcessResults();
   }
 });
 
-observer.observe(document.body, {
+observer.observe(document.documentElement, {
   childList: true,
   subtree: true
 });

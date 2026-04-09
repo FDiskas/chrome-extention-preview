@@ -27,6 +27,7 @@
 }
 
 .gs-preview-image-frame {
+  position: relative;
   border-radius: 16px;
   overflow: hidden;
   /* border: 1px solid #dadce0; */
@@ -59,9 +60,24 @@
   display: block;
 }
 
+.gs-preview-image.gs-preview-reloading {
+  opacity: 0.28;
+  transition: opacity 0.2s ease;
+}
+
 /* Skeleton loader effect */
 .gs-preview-loading {
   background: linear-gradient(90deg, #f3f4f6 25%, #8e9096 50%, #f3f4f6 75%);
+  background-size: 200% 100%;
+  animation: gs-shimmer 2s infinite linear;
+}
+
+.gs-preview-image-frame.gs-preview-loading::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(90deg, rgb(243 244 246 / 0.16) 25%, rgb(142 144 150 / 0.55) 50%, rgb(243 244 246 / 0.16) 75%);
   background-size: 200% 100%;
   animation: gs-shimmer 2s infinite linear;
 }

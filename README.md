@@ -16,9 +16,10 @@ It helps you quickly scan result pages by showing a visual snapshot of each webs
 
 1. A content script runs on `https://www.google.com/search*`.
 2. For each primary organic result, it builds a preview URL via `https://preview.coders.lt/api/screenshot?url=...`.
-3. The background service worker checks preview response headers.
+3. The background service worker fetches the preview response (cross-origin).
 4. If generation is still in progress, the extension retries based on the `Refresh` header.
-5. Once ready, the thumbnail is rendered into the search result block.
+5. Once ready, the worker converts the image blob into a `data:` URL and sends it back.
+6. The content script sets `<img src="data:...">` so previews render without page-initiated external image requests.
 
 ## Popup Features
 
@@ -27,10 +28,16 @@ The extension popup includes:
 - Engine status indicator (Active)
 - **Refresh Active Results** button to clear and regenerate previews on the current Google Search tab
 
+## Context Menu Reload
+
+- Right-click on a preview image and use **Reload preview image** from the extension menu.
+- The extension sends a reload API call with `action=reload` and then refreshes matching previews on the page.
+
 ## Permissions Used
 
 - `storage`
 - `scripting`
+- `contextMenus`
 - Host permissions:
   - `https://www.google.com/search*`
   - `https://preview.coders.lt/*`
@@ -65,3 +72,4 @@ These are required to inject result previews and check screenshot availability.
 
 - This extension is built for Google Search result pages.
 - Preview images are provided by the external service at `preview.coders.lt`.
+- Preview fetches happen in the extension service worker, not directly from page `<img>` requests.
