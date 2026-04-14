@@ -306,25 +306,36 @@ function refreshAllPreviews() {
  * Scans the page for search results and processes them.
  */
 function processResults() {
-  // Target only the primary search results container to avoid UI breakage
-  const rsoContainers = document.querySelectorAll('[data-async-context]#rso, #rso');
+  // Find all result titles (H3 is the most stable selector for Google results)
+  const titles = document.querySelectorAll('h3');
 
-  rsoContainers.forEach(rso => {
-    Array.from(rso.children).forEach(rsoChild => {
-      // Only process children that contain exactly one nested div element
-      const childElements = Array.from(rsoChild.children);
-      const divChildren = childElements.filter(c => c.tagName.toLowerCase() === 'div');
+  titles.forEach(title => {
+    // 1. Get the primary link (the parent 'a' of the 'h3')
+    const link = title.closest('a[href]');
+    if (!link || !isPrimaryResultLink(link)) return;
 
-      if (divChildren.length === 1 && childElements.length === 1) {
-        const links = rsoChild.querySelectorAll('a[href]');
-        links.forEach(link => {
-          if (isPrimaryResultLink(link, rsoChild)) {
-            injectPreview(link, rsoChild);
-          }
-        });
-      }
-    });
+    // 2. Identify the unique container for this specific result.
+    // We look for a wrapper that separates this result from others.
+    // 'div[data-hveid]' is highly stable as it's used for Google's internal event tracking.
+    const resultBlock = title.closest('[data-hveid], .g');
+    if (!resultBlock) return;
+
+    // 3. Inject preview into this specific block
+    injectPreview(link, resultBlock);
   });
+}
+
+/**
+ * Refined link validator to ensure we aren't hitting sidebar/widget links.
+ */
+function isPrimaryResultLink(link) {
+  if (link.dataset.gsProcessed || link.closest('.gs-preview-wrapper')) return false;
+
+  const href = link.getAttribute('href');
+  if (!href || href.startsWith('#') || href.startsWith('/search')) return false;
+
+  // Primary links usually have a specific JS action name or are within an H3
+  return !!link.querySelector('h3') || link.getAttribute('jsname') === 'UWckNb';
 }
 
 let processScheduled = false;
