@@ -206,18 +206,27 @@ function isVideoResult(container, link) {
  */
 function injectPreview(link, container) {
   if (link.dataset.gsProcessed) return;
-  link.dataset.gsProcessed = 'true';
 
   if (!container || container.querySelector('.gs-preview-wrapper')) return;
 
-  if (isVideoResult(container, link)) return;
+  if (isVideoResult(container, link)) {
+    link.dataset.gsProcessed = 'skip';
+    return;
+  }
 
   const url = resolveResultUrl(link.href);
+  // href may still be hydrating — leave unmarked so the next observer pass retries.
   if (!url) return;
 
   const urlObj = new URL(url);
-  if (!/^https?:$/.test(urlObj.protocol)) return;
-  if (/^www\.google\.[a-z.]{2,}$/.test(urlObj.hostname) && urlObj.pathname.startsWith('/search')) return;
+  if (!/^https?:$/.test(urlObj.protocol)) {
+    link.dataset.gsProcessed = 'skip';
+    return;
+  }
+  if (/^www\.google\.[a-z.]{2,}$/.test(urlObj.hostname) && urlObj.pathname.startsWith('/search')) {
+    link.dataset.gsProcessed = 'skip';
+    return;
+  }
 
   const siteName = getSiteName(link, container);
 
@@ -252,19 +261,17 @@ function injectPreview(link, container) {
     e.stopPropagation();
   });
 
-  // Find the description container using the highly reliable data-sncf="1" attribute
-  let descContainer = container.querySelector('[data-sncf="1"]');
+  // Require the description container. It renders late during hydration;
+  // falling back to the outer block leaves the preview stranded and Google's
+  // subsequent renders tend to wipe it. Defer (no mark) so we retry next cycle.
+  const descContainer = container.querySelector('[data-sncf="1"]');
+  if (!descContainer) return;
 
-  // Ultimate fallback to top-level if the specific structure isn't found
-  if (!descContainer) {
-    descContainer = container;
-  }
-
-  // We append a special class to the specific container we chose for scoping CSS later
   descContainer.classList.add('gs-desc-preview-layout');
   descContainer.insertBefore(previewDiv, descContainer.firstChild);
 
-  // Start the smart loading process
+  link.dataset.gsProcessed = 'true';
+
   const previewUrl = `${PREVIEW_API}${encodeURIComponent(url)}`;
   loadPreviewWithRetry(previewUrl, img, imageFrame);
 }
@@ -310,17 +317,20 @@ function processResults() {
   const titles = document.querySelectorAll('h3');
 
   titles.forEach(title => {
-    // 1. Get the primary link (the parent 'a' of the 'h3')
     const link = title.closest('a[href]');
-    if (!link || !isPrimaryResultLink(link)) return;
+    if (!link) return;
 
-    // 2. Identify the unique container for this specific result.
-    // We look for a wrapper that separates this result from others.
-    // 'div[data-hveid]' is highly stable as it's used for Google's internal event tracking.
     const resultBlock = title.closest('[data-hveid], .g');
     if (!resultBlock) return;
 
-    // 3. Inject preview into this specific block
+    // Self-heal: if this link was injected before but Google's later render
+    // wiped our preview, clear the flag so we re-inject on this pass.
+    if (link.dataset.gsProcessed === 'true' && !resultBlock.querySelector('.gs-preview-wrapper')) {
+      delete link.dataset.gsProcessed;
+    }
+
+    if (!isPrimaryResultLink(link)) return;
+
     injectPreview(link, resultBlock);
   });
 }
