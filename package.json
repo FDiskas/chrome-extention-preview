@@ -1,0 +1,24 @@
+{
+	"name": "chrome-extention-preview",
+	"version": "1.1.0",
+	"private": true,
+	"description": "Chrome extension that injects live website preview thumbnails into Google Search results.",
+	"scripts": {
+		"build": "bun run scripts/build.ts",
+		"typecheck": "tsc --noEmit",
+		"lint": "biome check",
+		"lint:fix": "biome check --write",
+		"format": "biome format --write",
+		"test": "bun test",
+		"unused:check": "knip"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.4.12",
+		"@types/bun": "latest",
+		"@types/chrome": "^0.1.40",
+		"knip": "^6.6.0"
+	},
+	"peerDependencies": {
+		"typescript": "^5"
+	}
+}

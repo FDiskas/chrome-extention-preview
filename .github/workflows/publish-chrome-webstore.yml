@@ -17,9 +17,30 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Test
+        run: bun test
+
+      - name: Build
+        run: bun run build
+
       - name: Create extension package
         run: |
-          zip -r release.zip manifest.json background.js content.js css popup icons
+          cd dist
+          zip -r ../release.zip .
 
       - name: Upload and publish
         uses: mobilefirstllc/cws-publish@569e87bc9a54ad7712ba6dc154a110d88af63b85 # 2.1.1

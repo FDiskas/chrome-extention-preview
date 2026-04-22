@@ -1,15 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Google Search Website Previews",
-  "version": "1.1",
+  "version": "1.2",
   "description": "Adds live website preview thumbnails to Google Search results.",
-  "background": {
-    "service_worker": "background.js"
-  },
-  "permissions": ["contextMenus"],
-  "host_permissions": [
-    "https://preview.coders.lt/*"
-  ],
   "content_scripts": [
     {
       "matches": [

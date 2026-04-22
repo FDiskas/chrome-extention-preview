@@ -60,11 +60,6 @@
   display: block;
 }
 
-.gs-preview-image.gs-preview-reloading {
-  opacity: 0.28;
-  transition: opacity 0.2s ease;
-}
-
 /* Skeleton loader effect */
 .gs-preview-loading {
   background: linear-gradient(90deg, #f3f4f6 25%, #8e9096 50%, #f3f4f6 75%);
