@@ -33,6 +33,7 @@ jobs:
           PACKAGE="google-search-website-previews-$VERSION.zip"
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           echo "PACKAGE=$PACKAGE" >> "$GITHUB_ENV"
+          echo "CRX_PACKAGE=${PACKAGE%.zip}.crx" >> "$GITHUB_ENV"
           echo "package=$PACKAGE" >> "$GITHUB_OUTPUT"
 
       - name: Checkout
@@ -68,6 +69,30 @@ jobs:
           cd dist
           zip -r "../$PACKAGE" .
 
+      - name: Create signed CRX package
+        env:
+          CRX_PRIVATE_KEY: ${{ secrets.CRX_PRIVATE_KEY }}
+        run: |
+          if [ -z "$CRX_PRIVATE_KEY" ]; then
+            echo "::warning::Secret CRX_PRIVATE_KEY is not set. Skipping the .crx package."
+            exit 0
+          fi
+          KEY_FILE="$RUNNER_TEMP/crx-key.pem"
+          printf '%s\n' "$CRX_PRIVATE_KEY" > "$KEY_FILE"
+          bunx crx3@2.0.0 --keyPath "$KEY_FILE" --crxPath "$CRX_PACKAGE" dist < /dev/null
+          rm "$KEY_FILE"
+
+      - name: Attach packages to GitHub release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1 \
+            || gh release create "$GITHUB_REF_NAME" --generate-notes --verify-tag
+          ASSETS=("$PACKAGE")
+          [ -f "$CRX_PACKAGE" ] && ASSETS+=("$CRX_PACKAGE")
+          gh release upload "$GITHUB_REF_NAME" "${ASSETS[@]}" --clobber
+
       - name: Upload and publish
         uses: mobilefirstllc/cws-publish@569e87bc9a54ad7712ba6dc154a110d88af63b85 # 2.1.1
         with:
@@ -77,12 +102,3 @@ jobs:
           refresh_token: ${{ secrets.CWS_REFRESH_TOKEN }}
           extension_id: ${{ vars.CWS_EXTENSION_ID }}
           zip_file: ${{ steps.version.outputs.package }}
-
-      - name: Attach package to GitHub release
-        if: github.ref_type == 'tag'
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1 \
-            || gh release create "$GITHUB_REF_NAME" --generate-notes --verify-tag
-          gh release upload "$GITHUB_REF_NAME" "$PACKAGE" --clobber

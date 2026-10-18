@@ -91,13 +91,16 @@ Secrets:
 
 - `CWS_CLIENT_SECRET`
 - `CWS_REFRESH_TOKEN`
+- `CRX_PRIVATE_KEY` (optional) — PEM private key that signs the `.crx`. Without it, the workflow skips the `.crx`. Create one with `openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out crx-key.pem` and keep the same key for every release.
 
 Variables:
 
 - `CWS_CLIENT_ID`
 - `CWS_EXTENSION_ID`
 
-The workflow packages `dist/` into `google-search-website-previews-<version>.zip`, publishes it with `mobilefirstllc/cws-publish` (`action: publish`), and attaches the same zip to the GitHub release.
+The workflow packages `dist/` into `google-search-website-previews-<version>.zip` and, when `CRX_PRIVATE_KEY` is set, a signed `google-search-website-previews-<version>.crx`. On tag runs it attaches both to the GitHub release before it publishes the zip with `mobilefirstllc/cws-publish` (`action: publish`), so the release gets the packages even when the store rejects the upload.
+
+The `.crx` is signed with your own key, so its extension ID is different from the Chrome Web Store ID. Chrome on Windows and macOS blocks `.crx` files from outside the store; use the zip for a manual install there.
 
 ### Manual install from a GitHub release
 
