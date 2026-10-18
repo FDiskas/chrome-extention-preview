@@ -5,6 +5,11 @@ on:
     tags:
       - "v*"
   workflow_dispatch:
+    inputs:
+      version:
+        description: "Extension version, higher than the published one (e.g. 1.3)"
+        required: true
+        type: string
 
 jobs:
   publish:
@@ -14,6 +19,17 @@ jobs:
       contents: read
 
     steps:
+      - name: Resolve version
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          VERSION="${INPUT_VERSION:-${GITHUB_REF_NAME#v}}"
+          if ! [[ "$VERSION" =~ ^(0|[1-9][0-9]*)(\.(0|[1-9][0-9]*)){0,3}$ ]]; then
+            echo "::error::Invalid version '$VERSION'. Use 1 to 4 dot-separated numbers, e.g. 1.3"
+            exit 1
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -36,6 +52,11 @@ jobs:
 
       - name: Build
         run: bun run build
+
+      - name: Set manifest version
+        run: |
+          jq --arg version "$VERSION" '.version = $version' dist/manifest.json > dist/manifest.tmp
+          mv dist/manifest.tmp dist/manifest.json
 
       - name: Create extension package
         run: |
