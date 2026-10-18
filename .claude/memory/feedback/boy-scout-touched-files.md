@@ -20,11 +20,12 @@ When a task changes a file, also fix the existing problems in that whole file be
 
 ### Why
 
-The user corrected "pre-existing" reports more than once and then made the rule a hard requirement (IMPORTANT section in `CLAUDE.md`). A partial cleanup of one line does not count.
+The user corrected "pre-existing" reports more than once and then made the rule a hard requirement (IMPORTANT section in `CLAUDE.md`). A partial cleanup of one line does not count. On 2026-10-18 the user said again: "always follow boy scout principle for all edited files" — it applies to follow-up edits in the same session too, not only to the first change.
 
 ### How to apply
 
 - Scope: only files the diff touches. Do not clean untouched files.
+- Apply it again after each follow-up edit (a small tweak the user asks for), not only once per task.
 - Keep cleanups behaviour-preserving. If a cleanup changes behaviour (an empty `catch`, a listener that does two things, a CSS rule whose removal changes the look), name it in the report and ask.
 - Biome does not check `css/`, `popup/*.html`, `manifest.json` or `knip.config.ts` (see `biome.json` `files.includes`). Review those by hand when you touch them.
 - After the cleanup, run `bun run lint`, `bun run typecheck` and `bun test`.

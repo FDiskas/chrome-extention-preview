@@ -1,15 +1,8 @@
-export function extractSiteName(
-	link: HTMLAnchorElement,
-	container: Element,
-): string {
-	const fromHeader = extractFromResultHeader(container);
-	if (fromHeader) return fromHeader;
-
-	try {
-		return new URL(link.href).hostname.replace(/^www\./, '');
-	} catch {
-		return '';
-	}
+export function extractSiteName(container: Element, origin: string): string {
+	return (
+		extractFromResultHeader(container) ||
+		new URL(origin).hostname.replace(/^www\./, '')
+	);
 }
 
 function extractFromResultHeader(container: Element): string {

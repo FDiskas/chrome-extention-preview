@@ -12,7 +12,7 @@ The extension has only two bundles: `src/content/index.ts` → `dist/content.js`
 
 - There is **no** background service worker, no context menu, no `Refresh`-header retry, no `data:` URL conversion.
 - `manifest.json` has **no** `permissions` and **no** `host_permissions`. The content script runs at `document_start` on a hard-coded list of Google domains (`*://*.google.<tld>/search*`).
-- `src/content/preview-injector.ts` sets `img.src` to `PREVIEW_SCREENSHOT_API + encodeURIComponent(origin)`. The page loads the image itself, with `referrerPolicy = 'no-referrer'`. Only the site origin is sent, not the full result URL.
+- `src/content/preview-injector.ts` sets `img.src` to `PREVIEW_SCREENSHOT_API + encodeURIComponent(origin)`. The page loads the image itself, with `referrerPolicy = 'no-referrer'`. Only the site origin is sent, not the full result URL. With Google `/goto` links the origin comes from the result `<cite>` (see [[google-redirect-empty-q]]).
 - On image `error`, the whole preview wrapper is removed.
 - The popup sends `{ action: 'refreshAllPreviews' }` (type in `src/shared/messages.ts`) to the active tab. The content script removes all wrappers, clears `data-gs-processed`, and scans again.
 
@@ -23,7 +23,6 @@ Commit `e6a47c0` replaced `background.js`/`content.js` with `src/` and removed t
 ### How to apply
 
 - Do not trust README or the project skill on architecture. Trust `manifest.json` and `scripts/build.ts`.
-- `isGoogleSearchPage` in `src/shared/url.ts` is used only by tests (it served the old worker).
 - To support a new Google domain, add it to `content_scripts[0].matches` in `manifest.json`.
 - Adding a background worker or cross-origin fetch needs a `background` key, a `bundleEntry` call in `scripts/build.ts`, and `host_permissions`.
 - Delete this entry's stale-docs part when README and the skill are fixed.

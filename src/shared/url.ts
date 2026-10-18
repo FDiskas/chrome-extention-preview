@@ -1,61 +1,59 @@
-const GOOGLE_REDIRECT_HOST_PATTERN = /(^|\.)google\./;
+const GOOGLE_HOST_PATTERN = /^([a-z0-9-]+\.)*google\.[a-z]{2,3}(\.[a-z]{2})?$/;
+const HTTP_PROTOCOL_PATTERN = /^https?:$/;
+const DISPLAYED_HOST_PATTERN =
+	/^(https?:\/\/)?[a-z0-9-]+(\.[a-z0-9-]+)+(:\d+)?$/i;
+const DISPLAYED_URL_SEPARATOR = /[\s›]/;
+
+function parseUrl(url: string, baseHref?: string): URL | null {
+	try {
+		return new URL(url, baseHref);
+	} catch {
+		return null;
+	}
+}
+
+function isGoogleHost(parsed: URL): boolean {
+	return GOOGLE_HOST_PATTERN.test(parsed.hostname);
+}
 
 export function resolveResultUrl(rawHref: string, baseHref?: string): string {
-	try {
-		const parsed = new URL(rawHref, baseHref);
+	const parsed = parseUrl(rawHref, baseHref);
+	if (!parsed) return '';
 
-		if (
-			GOOGLE_REDIRECT_HOST_PATTERN.test(parsed.hostname) &&
-			parsed.pathname === '/url'
-		) {
-			const target =
-				parsed.searchParams.get('q') || parsed.searchParams.get('url');
-			if (target) return target;
-		}
-
-		return parsed.href;
-	} catch {
-		return '';
+	if (isGoogleHost(parsed) && parsed.pathname === '/url') {
+		const target =
+			parsed.searchParams.get('q') || parsed.searchParams.get('url');
+		if (target) return target;
 	}
+
+	return parsed.href;
 }
 
 export function isHttpUrl(url: string): boolean {
-	try {
-		return /^https?:$/.test(new URL(url).protocol);
-	} catch {
-		return false;
-	}
+	const parsed = parseUrl(url);
+	return parsed !== null && HTTP_PROTOCOL_PATTERN.test(parsed.protocol);
+}
+
+export function isGoogleUrl(url: string): boolean {
+	const parsed = parseUrl(url);
+	return parsed !== null && isGoogleHost(parsed);
 }
 
 export function isGoogleSearchUrl(url: string): boolean {
-	try {
-		const parsed = new URL(url);
-		return (
-			/^www\.google\.[a-z.]{2,}$/.test(parsed.hostname) &&
-			parsed.pathname.startsWith('/search')
-		);
-	} catch {
-		return false;
-	}
+	const parsed = parseUrl(url);
+	return (
+		parsed !== null &&
+		isGoogleHost(parsed) &&
+		parsed.pathname.startsWith('/search')
+	);
 }
 
 export function toOriginUrl(url: string): string {
-	try {
-		return new URL(url).origin;
-	} catch {
-		return '';
-	}
+	return parseUrl(url)?.origin ?? '';
 }
 
-export function isGoogleSearchPage(url: string | undefined): boolean {
-	if (!url) return false;
-	try {
-		const parsed = new URL(url);
-		return (
-			parsed.hostname.startsWith('www.google.') &&
-			parsed.pathname.startsWith('/search')
-		);
-	} catch {
-		return false;
-	}
+export function parseDisplayedOrigin(displayedUrl: string): string {
+	const [host = ''] = displayedUrl.trim().split(DISPLAYED_URL_SEPARATOR);
+	if (!DISPLAYED_HOST_PATTERN.test(host)) return '';
+	return toOriginUrl(/^https?:\/\//i.test(host) ? host : `https://${host}`);
 }

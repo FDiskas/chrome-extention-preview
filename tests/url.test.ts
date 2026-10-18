@@ -1,8 +1,9 @@
 import { describe, expect, test } from 'bun:test';
 import {
-	isGoogleSearchPage,
 	isGoogleSearchUrl,
+	isGoogleUrl,
 	isHttpUrl,
+	parseDisplayedOrigin,
 	resolveResultUrl,
 	toOriginUrl,
 } from '../src/shared/url.ts';
@@ -33,6 +34,11 @@ describe('resolveResultUrl', () => {
 		);
 	});
 
+	test('keeps /url on a non-google host', () => {
+		const href = 'https://google.example.com/url?q=https://other.com';
+		expect(resolveResultUrl(href)).toBe(href);
+	});
+
 	test('resolves relative href against base', () => {
 		expect(resolveResultUrl('/foo', 'https://example.com/')).toBe(
 			'https://example.com/foo',
@@ -56,22 +62,33 @@ describe('isHttpUrl', () => {
 	});
 });
 
+describe('isGoogleUrl', () => {
+	test.each([
+		['https://www.google.com/goto?url=CAESUgHrOzAV', true],
+		['https://www.google.co.uk/url?q=x', true],
+		['https://www.google.com.au/', true],
+		['https://play.google.com/store', true],
+		['https://google.lt/', true],
+		['https://example.com/google.html', false],
+		['https://google.example.com/', false],
+		['https://notgoogle.com/', false],
+		['not a url', false],
+	])('isGoogleUrl(%s) = %s', (url, expected) => {
+		expect(isGoogleUrl(url)).toBe(expected);
+	});
+});
+
 describe('isGoogleSearchUrl', () => {
-	test('detects google search host', () => {
-		expect(isGoogleSearchUrl('https://www.google.com/search?q=test')).toBe(
-			true,
-		);
-		expect(isGoogleSearchUrl('https://www.google.co.uk/search?q=test')).toBe(
-			true,
-		);
-	});
-
-	test('rejects non-search google paths', () => {
-		expect(isGoogleSearchUrl('https://www.google.com/maps')).toBe(false);
-	});
-
-	test('rejects non-google hosts', () => {
-		expect(isGoogleSearchUrl('https://example.com/search')).toBe(false);
+	test.each([
+		['https://www.google.com/search?q=test', true],
+		['https://www.google.co.uk/search?q=test', true],
+		['https://google.com/search?q=test', true],
+		['https://www.google.com/maps', false],
+		['https://example.com/search', false],
+		['https://google.example.com/search', false],
+		['not a url', false],
+	])('isGoogleSearchUrl(%s) = %s', (url, expected) => {
+		expect(isGoogleSearchUrl(url)).toBe(expected);
 	});
 });
 
@@ -97,18 +114,23 @@ describe('toOriginUrl', () => {
 	});
 });
 
-describe('isGoogleSearchPage', () => {
-	test('accepts www.google.* search page', () => {
-		expect(isGoogleSearchPage('https://www.google.lt/search?q=test')).toBe(
-			true,
-		);
-	});
-
-	test('rejects undefined', () => {
-		expect(isGoogleSearchPage(undefined)).toBe(false);
-	});
-
-	test('rejects malformed url', () => {
-		expect(isGoogleSearchPage('not-a-url')).toBe(false);
+describe('parseDisplayedOrigin', () => {
+	test.each([
+		['https://onlycoders.net', 'https://onlycoders.net'],
+		[
+			'https://www.britannica.com › dictionary › coder',
+			'https://www.britannica.com',
+		],
+		[
+			'https://www.allassignmenthelp.com › blog › what-do-co...',
+			'https://www.allassignmenthelp.com',
+		],
+		['http://example.com:8080 › a', 'http://example.com:8080'],
+		['example.org › path', 'https://example.org'],
+		['9,9K+ followers', ''],
+		['460+ followers', ''],
+		['', ''],
+	])('parseDisplayedOrigin(%s) = %s', (displayedUrl, expected) => {
+		expect(parseDisplayedOrigin(displayedUrl)).toBe(expected);
 	});
 });

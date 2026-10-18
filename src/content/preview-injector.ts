@@ -1,7 +1,9 @@
 import { CSS, PREVIEW_SCREENSHOT_API } from '../shared/constants.ts';
 import {
 	isGoogleSearchUrl,
+	isGoogleUrl,
 	isHttpUrl,
+	parseDisplayedOrigin,
 	resolveResultUrl,
 	toOriginUrl,
 } from '../shared/url.ts';
@@ -15,18 +17,11 @@ export function injectPreview(
 	if (link.dataset.gsProcessed) return;
 	if (container.querySelector(`.${CSS.wrapper}`)) return;
 
-	if (isVideoResult(container, link)) {
-		link.dataset.gsProcessed = 'skip';
-		return;
-	}
-
 	const url = resolveResultUrl(link.href, window.location.href);
 	if (!url) return;
-	if (!isHttpUrl(url)) {
-		link.dataset.gsProcessed = 'skip';
-		return;
-	}
-	if (isGoogleSearchUrl(url)) {
+
+	const origin = findPreviewOrigin(url, container);
+	if (!origin || isVideoResult(container, origin)) {
 		link.dataset.gsProcessed = 'skip';
 		return;
 	}
@@ -34,28 +29,30 @@ export function injectPreview(
 	const descContainer = container.querySelector('[data-sncf="1"]');
 	if (!descContainer) return;
 
-	const siteName = extractSiteName(link, container);
-	const origin = toOriginUrl(url);
-	if (!origin) return;
+	const siteName = extractSiteName(container, origin);
 	const previewUrl = `${PREVIEW_SCREENSHOT_API}${encodeURIComponent(origin)}`;
-	const preview = buildPreviewElement(url, siteName, previewUrl);
+	const wrapper = buildPreviewElement(url, siteName, previewUrl);
 
 	descContainer.classList.add(CSS.descLayout);
-	descContainer.insertBefore(preview.wrapper, descContainer.firstChild);
+	descContainer.insertBefore(wrapper, descContainer.firstChild);
 	link.dataset.gsProcessed = 'true';
 }
 
-type PreviewElements = {
-	wrapper: HTMLDivElement;
-	imageFrame: HTMLDivElement;
-	image: HTMLImageElement;
-};
+// Google links results through opaque /goto?url=<token> redirects, so the
+// target origin is only available from the displayed breadcrumb (<cite>).
+function findPreviewOrigin(url: string, container: Element): string {
+	if (!isHttpUrl(url) || isGoogleSearchUrl(url)) return '';
+	if (!isGoogleUrl(url)) return toOriginUrl(url);
+
+	const displayedUrl = container.querySelector('cite')?.textContent ?? '';
+	return parseDisplayedOrigin(displayedUrl);
+}
 
 function buildPreviewElement(
 	targetUrl: string,
 	siteName: string,
 	previewUrl: string,
-): PreviewElements {
+): HTMLDivElement {
 	const wrapper = document.createElement('div');
 	wrapper.className = CSS.wrapper;
 	wrapper.title = 'Website preview';
@@ -97,5 +94,5 @@ function buildPreviewElement(
 	thumbLink.appendChild(imageFrame);
 	wrapper.appendChild(thumbLink);
 
-	return { wrapper, imageFrame, image };
+	return wrapper;
 }

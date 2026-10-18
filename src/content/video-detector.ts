@@ -5,11 +5,8 @@ const VIDEO_MARKUP_SELECTOR =
 const VIDEO_SECTION_SELECTOR =
 	'g-section-with-header, block-component, [data-hveid]';
 
-export function isVideoResult(
-	container: Element,
-	link: HTMLAnchorElement,
-): boolean {
-	if (VIDEO_HOST_PATTERN.test(link.href.toLowerCase())) return true;
+export function isVideoResult(container: Element, origin: string): boolean {
+	if (VIDEO_HOST_PATTERN.test(origin)) return true;
 	if (container.querySelector(VIDEO_MARKUP_SELECTOR)) return true;
 
 	const section = container.closest(VIDEO_SECTION_SELECTOR);

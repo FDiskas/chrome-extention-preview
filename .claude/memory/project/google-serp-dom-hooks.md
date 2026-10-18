@@ -15,10 +15,11 @@ Selectors in use (all can drift when Google changes markup):
 | Result block | closest `[data-hveid], .g` | `result-scanner.ts` |
 | Primary link fallback | `a[jsname="UWckNb"]` | `result-link.ts` |
 | Insert point (description) | `[data-sncf="1"]` | `preview-injector.ts` |
-| Site name | leaf `span` in `[data-snhf="0"]` | `site-name.ts` |
-| Video skip | host list, `g-video-preview`, `[data-vid]`, "video" headings | `video-detector.ts` |
+| Site name | leaf `span` in `[data-snhf="0"]`, else origin host | `site-name.ts` |
+| Target origin when href is `/goto` | first `cite` text | `preview-injector.ts` |
+| Video skip | host list (tested on the origin, not `link.href`), `g-video-preview`, `[data-vid]`, "video" headings | `video-detector.ts` |
 
-State marker: `link.dataset.gsProcessed` = `'true'` (injected) or `'skip'` (video, non-http, Google search link). Injected classes come from `CSS` in `src/shared/constants.ts` and must match `css/styles.css`.
+State marker: `link.dataset.gsProcessed` = `'true'` (injected) or `'skip'` (video, non-http, Google search link, no origin in `cite`). Injected classes come from `CSS` in `src/shared/constants.ts` and must match `css/styles.css`.
 
 ### Why
 
