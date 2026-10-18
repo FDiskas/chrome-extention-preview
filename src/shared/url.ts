@@ -9,7 +9,7 @@ export function resolveResultUrl(rawHref: string, baseHref?: string): string {
 			parsed.pathname === '/url'
 		) {
 			const target =
-				parsed.searchParams.get('q') ?? parsed.searchParams.get('url');
+				parsed.searchParams.get('q') || parsed.searchParams.get('url');
 			if (target) return target;
 		}
 

@@ -25,6 +25,14 @@ describe('resolveResultUrl', () => {
 		expect(resolveResultUrl(wrapped)).toBe('https://example.com/path');
 	});
 
+	test('falls back to url= when q= is present but empty', () => {
+		const wrapped =
+			'https://www.google.com/url?esrc=s&q=&rct=j&sa=U&url=https://en.wikipedia.org/wiki/Coders_at_Work';
+		expect(resolveResultUrl(wrapped)).toBe(
+			'https://en.wikipedia.org/wiki/Coders_at_Work',
+		);
+	});
+
 	test('resolves relative href against base', () => {
 		expect(resolveResultUrl('/foo', 'https://example.com/')).toBe(
 			'https://example.com/foo',
