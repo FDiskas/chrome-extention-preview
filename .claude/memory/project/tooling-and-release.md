@@ -9,6 +9,7 @@ updated: 2026-10-18
 
 - The Chrome Web Store reads `version` from `manifest.json` (now `1.2`). `package.json` `version` (now `1.1.0`) is not used by the build or the store. `scripts/build.ts` copies the manifest as is.
 - Pushing any `v*` tag runs `.github/workflows/publish-chrome-webstore.yml`: typecheck → lint → test → build → zip `dist/` → publish. There is no separate "upload as draft" step.
+- The workflow reads `CWS_CLIENT_SECRET` and `CWS_REFRESH_TOKEN` (scope `https://www.googleapis.com/auth/chromewebstore`) from repo secrets, and `CWS_CLIENT_ID` and `CWS_EXTENSION_ID` from repo variables (`vars.*`). The OAuth client must be your own Web application client — `407408718192` is the OAuth Playground default client and its tokens are revoked after 24h. If the OAuth consent screen stays in "Testing" status, the refresh token expires after 7 days and the publish step fails — set it to "In production".
 - `bun run unused:check` runs knip (not listed in the project skill). knip ignores `scripts/`.
 - Biome checks only `src/`, `tests/`, `scripts/` and three JSON configs. It does not check `css/`, `popup/`, `manifest.json` or `knip.config.ts` (that file uses 2-space indent, unlike the rest).
 
