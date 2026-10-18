@@ -80,14 +80,27 @@ This repository includes a GitHub Actions workflow at `.github/workflows/publish
 
 ### Triggers
 
-- Push a tag matching `v*` (for example `v1.2.0`)
-- Manual run from the **Actions** tab via `workflow_dispatch`
+- Create a GitHub release, or push a tag, named after the version (`1.2.2` or `v1.2.2`)
+- Manual run from the **Actions** tab via `workflow_dispatch`, with a `version` input
 
-### Required GitHub Secrets
+The version comes from the tag or the input and is written into `dist/manifest.json`. It must be higher than the published version. The `version` in the repository `manifest.json` is not used.
 
-- `CWS_CLIENT_ID`
+### Required GitHub Settings
+
+Secrets:
+
 - `CWS_CLIENT_SECRET`
 - `CWS_REFRESH_TOKEN`
+
+Variables:
+
+- `CWS_CLIENT_ID`
 - `CWS_EXTENSION_ID`
 
-The workflow packages the extension files into `release.zip` and runs `mobilefirstllc/cws-publish@latest` with `action: publish`.
+The workflow packages `dist/` into `google-search-website-previews-<version>.zip`, publishes it with `mobilefirstllc/cws-publish` (`action: publish`), and attaches the same zip to the GitHub release.
+
+### Manual install from a GitHub release
+
+1. Download `google-search-website-previews-<version>.zip` from the release and unzip it.
+2. Open `chrome://extensions` and turn on **Developer mode**.
+3. Click **Load unpacked** and select the unzipped folder.
